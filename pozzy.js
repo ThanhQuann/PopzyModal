@@ -1,23 +1,23 @@
+const $ = document.querySelector.bind(document);
+const $$ = document.querySelectorAll.bind(document);
 Pozzy.elements = [];
 function Pozzy(options = {}) {
   this.opt = Object.assign(
     {
       destroyOnClose: true,
       footer: false,
+      enableScrollLock: true,
       cssClass: [],
       closeMethods: ["button", "overlay", "escape"],
+      scrollLockTarget: () => document.body,
     },
     options
   );
   this._footerButtons = [];
   this._handleEscapeKey = this._handleEscapeKey.bind(this);
-  this.template = document.querySelector(`#${this.opt.templateId}`);
-  if (!this.template) {
-    console.error(`#${this.opt.templateId} does not exist!`);
-    return;
-  }
+  this.template = $(`#${this.opt.templateId}`);
+  this.content = this.opt.content;
   const { closeMethods } = this.opt;
-
   this._allowButtonClose = closeMethods.includes("button");
   this._allowBackdropClose = closeMethods.includes("overlay");
   this._allowEscapeClose = closeMethods.includes("escape");
@@ -30,21 +30,31 @@ Pozzy.prototype.getScrollbarWidth = function () {
     position: "absolute",
     top: "-9999px",
   });
+
   document.body.appendChild(div);
   this.scrollbarWidth = div.offsetWidth - div.clientWidth;
   document.body.removeChild(div);
+
   return this.scrollbarWidth;
 };
-
+Pozzy.prototype.setContent = function (content) {
+  this.content = content;
+};
 Pozzy.prototype._build = function () {
-  const content = this.template.content.cloneNode(true);
-
+  if (!this.content && !this.template) {
+    alert("Please pass content creation data or templateID");
+    return;
+  }
+  const contentNode = this.content
+    ? document.createElement("div")
+    : this.template.content.cloneNode(true);
+  if (this.content) {
+    contentNode.innerHTML = this.content;
+  }
   this._backdrop = document.createElement("div");
   this._backdrop.className = "pozzy-backdrop";
-
   const container = document.createElement("div");
   container.className = "pozzy-container";
-
   this.opt.cssClass.forEach((className) => {
     if (typeof className === "string") {
       container.classList.add(className);
@@ -56,11 +66,10 @@ Pozzy.prototype._build = function () {
     );
     container.append(closeBtn);
   }
-
   const modalContent = document.createElement("div");
   modalContent.className = "pozzy-content";
 
-  modalContent.append(content);
+  modalContent.append(contentNode);
   container.append(modalContent);
 
   if (this.opt.footer) {
@@ -90,6 +99,12 @@ Pozzy.prototype.addFooterButton = function (title, cssClass, callback) {
   }
   return button;
 };
+Pozzy.prototype._hasScrollbar = function (target) {
+  if([document.body,document.documentElement].includes(target)){
+    return document.body.scrollHeight > document.body.clientHeight || document.documentElement.scrollHeight > document.documentElement.clientHeight
+  }
+  return target.scrollHeight > target.clientHeight;
+};
 Pozzy.prototype.createFooterButton = function (title, cssClass, callback) {
   const button = document.createElement("button");
   button.className = cssClass;
@@ -113,8 +128,17 @@ Pozzy.prototype.open = function () {
     this._backdrop.classList.add("show");
   }, 0);
 
-  document.body.classList.add("no-scroll");
-  document.body.style.paddingRight = this.getScrollbarWidth() + "px";
+  if (this.opt.enableScrollLock) {
+    const target = this.opt.scrollLockTarget();
+    // console.log(this._hasScrollbar(target));
+    const targetPaddingRight =
+      parseInt(getComputedStyle(target).paddingRight) +
+      this.getScrollbarWidth();
+    if (this._hasScrollbar(target)) {
+      target.classList.add("no-scroll");
+      target.style.paddingRight = targetPaddingRight + "px";
+    }
+  }
 
   if (this._allowBackdropClose) {
     this._backdrop.onclick = (e) => {
@@ -161,10 +185,15 @@ Pozzy.prototype.close = function (destroy = this.opt.destroyOnClose) {
       this._modalFooter = null;
     }
 
-    document.body.style.paddingRight = "";
-    if (!Pozzy.elements.length) {
-      document.body.classList.remove("no-scroll");
+    // Enable scrolling
+    if (this.opt.enableScrollLock && !Pozzy.elements.length) {
+      const target = this.opt.scrollLockTarget();
+      if (this._hasScrollbar(target)) {
+        target.classList.remove("no-scroll");
+        target.style.paddingRight = "";
+      }
     }
+
     if (typeof this.opt.onClose === "function") this.opt.onClose();
   });
 };
