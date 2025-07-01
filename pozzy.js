@@ -130,7 +130,6 @@ Pozzy.prototype.open = function () {
 
   if (this.opt.enableScrollLock) {
     const target = this.opt.scrollLockTarget();
-    // console.log(this._hasScrollbar(target));
     const targetPaddingRight =
       parseInt(getComputedStyle(target).paddingRight) +
       this.getScrollbarWidth();
@@ -160,7 +159,6 @@ Pozzy.prototype.open = function () {
 
 Pozzy.prototype._handleEscapeKey = function (e) {
   const lastModal = Pozzy.elements[Pozzy.elements.length - 1];
-  console.log(this);
   if (e.key === "Escape" && this === lastModal) {
     this.close();
   }
